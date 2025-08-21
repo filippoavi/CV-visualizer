@@ -63,11 +63,8 @@ public class UIManager : MonoBehaviour
 
     public void Start()
     {
-        // Load the video name from PlayerPrefs
-        if (PlayerPrefs.HasKey("VideoIndex"))
-        {
-            videoIndex = PlayerPrefs.GetString("CSV", "");
-        }
+
+        string videoIndex = DataHolder.videoIndex;
         videoPanel.GetComponent<TextMeshProUGUI>().text = "Currently displaying: " + videoIndex;
     }
 }

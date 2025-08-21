@@ -3592,6 +3592,7 @@ GameObject:
   - component: {fileID: 1866807175}
   - component: {fileID: 1866807174}
   - component: {fileID: 1866807178}
+  - component: {fileID: 1866807179}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -3700,9 +3701,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   dropdown: {fileID: 22432065}
   CSVButton: {fileID: 0}
-  pythonPath: D:/Documenti/Universita/MS/Anno 2/Computer Vision/Progetto/CV_HPE
-  videoPath: 
   waitScreen: {fileID: 1247229919}
+--- !u!114 &1866807179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1866807173}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e978c2e41a64644d9c174368add2863, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1885589824
 GameObject:
   m_ObjectHideFlags: 0

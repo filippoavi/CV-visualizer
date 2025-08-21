@@ -4,6 +4,7 @@ using System.Collections;
 using Unity.VisualScripting;
 using NUnit.Framework;
 using UnityEngine.UIElements;
+using System.IO;
 
 public class Trajectory_Manager : MonoBehaviour
 {
@@ -12,7 +13,7 @@ public class Trajectory_Manager : MonoBehaviour
     // Trajectory data is stored as a list of arrays
     // First number in each line is the frame, second is the joint name, 3rd, 4th and 5th are the joint positions (z is up in data), last number is the visibility of the joint
     [SerializeField]
-    public static System.Collections.Generic.List<string[]> trajectoryData =
+    public System.Collections.Generic.List<string[]> trajectoryData =
         new System.Collections.Generic.List<string[]>();
     public bool debug = true;
     public GameObject joints_root;
@@ -29,7 +30,6 @@ public class Trajectory_Manager : MonoBehaviour
     private static int maxFrame;
     private Vector3 headP;
     private Vector3 spineVectorBase = new Vector3(0f, 0.60283422f, -0.00340802129f);
-
     // Dictionary of starting Euler angles of the joints
     private System.Collections.Generic.Dictionary<string, Vector3> startingRotations = new System.Collections.Generic.Dictionary<string, Vector3>
     {
@@ -64,7 +64,7 @@ public class Trajectory_Manager : MonoBehaviour
             Debug.Log("Starting trajectory coroutine, trajectoryData.Count/jointNumber = " + trajectoryData.Count / jointNumber);
         }
         print("Starting " + Time.time);
-        for (int i = 2; i < (trajectoryData.Count / jointNumber) + 2; i++)
+        for (int i = 2; i < Mathf.FloorToInt((trajectoryData.Count-1) / jointNumber) + 2; i++)
         {
             UpdateJointsFromTrajectory(i);
             uiManager.UpdateSlider(i);
@@ -83,18 +83,23 @@ public class Trajectory_Manager : MonoBehaviour
     IEnumerator UpdateHandRotationsCoroutine()
     {
         // Wait for a short time to ensure the joints are updated before setting hand rotations
-        yield return new WaitForSeconds(0.01f);
+        yield return new WaitForSeconds(0.05f);
         UpdateHandRotations();
         if (debug)
         {
             Debug.Log("Hand rotations updated.");
         }
     }
+    IEnumerator ShowPerson(GameObject person)
+    {
+        yield return new WaitForSeconds(0.000001f);
+        person.transform.GetChild(0).GetChild(0).gameObject.SetActive(true);
+        person.transform.GetChild(0).GetChild(1).gameObject.SetActive(true);
+    }
 
     // Function for loading trajectory data from a CSV file
     private void LoadTrajectoryData(string csvPath)
     {
-
         // Read the CSV file to a list of arrays
         try
         {
@@ -143,7 +148,7 @@ public class Trajectory_Manager : MonoBehaviour
         // Destroy and reinstantiate the person prefab (to reset the IK rig)
         DestroyPerson();
         InstantiatePerson();
-            
+
         if (debug)
         {
             Debug.Log("Appliying joint position from frame: " + frame);
@@ -189,7 +194,7 @@ public class Trajectory_Manager : MonoBehaviour
                     }
                 }
             }
-        }       
+        }
 
         // Set Hips position as the middle point of RHip and LHip
         if (rHipPos.HasValue && lHipPos.HasValue && hips != null)
@@ -247,7 +252,7 @@ public class Trajectory_Manager : MonoBehaviour
         Debug.Log("spineVectorPose: " + spineVectorPose + " - difference: " + difference);
 
         // Rotate spine0 so it points towards head
-        float locZ = head.z - (hips.position.z -0.01f);
+        float locZ = head.z - (hips.position.z - 0.01f);
         float locY = head.y - (hips.position.y + 0.1f);
         float locC1 = Mathf.Sqrt(Mathf.Pow(locY, 2) + Mathf.Pow(locZ, 2));
         float locX = head.x - hips.position.x;
@@ -387,6 +392,8 @@ public class Trajectory_Manager : MonoBehaviour
         // Load all joints from the person GameObject hierarchy
         joints.Clear();
         LoadAllJoints(joints_root);
+
+        StartCoroutine(ShowPerson(person));
     }
 
     // Function to destroy the instantiated person
@@ -395,7 +402,7 @@ public class Trajectory_Manager : MonoBehaviour
         if (joints_root != null)
         {
             Destroy(joints_root);
-            joints_root = null; 
+            joints_root = null;
         }
         if (joints != null)
         {
@@ -405,12 +412,8 @@ public class Trajectory_Manager : MonoBehaviour
 
     void Start()
     {
-        // Load the video name from PlayerPrefs
-        if (PlayerPrefs.HasKey("VideoIndex"))
-        {
-            videoIndex = PlayerPrefs.GetString("CSV", "");
-        }
-        
+        Debug.Log("Current directory: " + System.IO.Directory.GetCurrentDirectory());
+        videoIndex = DataHolder.videoIndex;
         // Load trajectory data from the specified CSV path
         LoadTrajectoryData(traj_csv_path + videoIndex);
         uiManager.SetSliderRange(minFrame, maxFrame);

@@ -48,7 +48,6 @@ public class CameraMovement : MonoBehaviour
 
         Vector3 move = transform.right * moveX + transform.forward * moveZ + Vector3.up * moveY;
 
-        // If space is held, restrict movement to XZ plane
         if (keyboard.spaceKey.isPressed)
         {
             move.y = 0;

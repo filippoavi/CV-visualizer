@@ -2653,7 +2653,7 @@ MonoBehaviour:
   joints_root: {fileID: 0}
   joints: []
   scale: 1000
-  animationFramerate: 2
+  animationFramerate: 25
   uiManager: {fileID: 395861389}
   jointNumber: 18
   stopAnimation: 0
