@@ -13,8 +13,7 @@ public class Trajectory_Manager : MonoBehaviour
     // Trajectory data is stored as a list of arrays
     // First number in each line is the frame, second is the joint name, 3rd, 4th and 5th are the joint positions (z is up in data), last number is the visibility of the joint
     [SerializeField]
-    public System.Collections.Generic.List<string[]> trajectoryData =
-        new System.Collections.Generic.List<string[]>();
+    public System.Collections.Generic.List<string[]> trajectoryData = new System.Collections.Generic.List<string[]>();
     public bool debug = true;
     public GameObject joints_root;
     [SerializeField]
@@ -412,7 +411,6 @@ public class Trajectory_Manager : MonoBehaviour
 
     void Start()
     {
-        Debug.Log("Current directory: " + System.IO.Directory.GetCurrentDirectory());
         videoIndex = DataHolder.videoIndex;
         // Load trajectory data from the specified CSV path
         LoadTrajectoryData(traj_csv_path + videoIndex);
