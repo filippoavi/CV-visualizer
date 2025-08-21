@@ -9,7 +9,7 @@ public class UIManager : MonoBehaviour
     public GameObject animationButton;
     public bool isAnimationPlaying = false;
     public GameObject videoPanel;
-    private int videoIndex = 3;
+    private string videoIndex = "";
 
     public void SelectFrame()
     {
@@ -55,13 +55,19 @@ public class UIManager : MonoBehaviour
         UnityEngine.SceneManagement.SceneManager.LoadScene("MainMenu");
     }
 
+    public void SetSliderRange(int min, int max)
+    {
+        slider.GetComponent<UnityEngine.UI.Slider>().minValue = min;
+        slider.GetComponent<UnityEngine.UI.Slider>().maxValue = max;
+    }
+
     public void Start()
     {
-        // Load the video index from PlayerPrefs
+        // Load the video name from PlayerPrefs
         if (PlayerPrefs.HasKey("VideoIndex"))
         {
-            videoIndex = PlayerPrefs.GetInt("VideoIndex", 0);
+            videoIndex = PlayerPrefs.GetString("CSV", "");
         }
-        videoPanel.GetComponent<TextMeshProUGUI>().text = "Current Video: " + videoIndex;        
+        videoPanel.GetComponent<TextMeshProUGUI>().text = "Currently displaying: " + videoIndex;
     }
 }

@@ -2,10 +2,12 @@ using System;
 using UnityEngine;
 using System.Collections;
 using Unity.VisualScripting;
+using NUnit.Framework;
+using UnityEngine.UIElements;
 
 public class Trajectory_Manager : MonoBehaviour
 {
-    public string traj_csv_path = @"D:\Documenti\Universita\MS\Anno 2\Computer Vision\Progetto\CV_HPE\csv_trajectories\trajectories.csv";
+    public string traj_csv_path = Application.dataPath + "/CSV/";
 
     // Trajectory data is stored as a list of arrays
     // First number in each line is the frame, second is the joint name, 3rd, 4th and 5th are the joint positions (z is up in data), last number is the visibility of the joint
@@ -22,6 +24,11 @@ public class Trajectory_Manager : MonoBehaviour
     public int jointNumber = 18;
     public bool stopAnimation = false;
     public GameObject personPrefab;
+    private string videoIndex = "";
+    private static int minFrame;
+    private static int maxFrame;
+    private Vector3 headP;
+    private Vector3 spineVectorBase = new Vector3(0f, 0.60283422f, -0.00340802129f);
 
     // Dictionary of starting Euler angles of the joints
     private System.Collections.Generic.Dictionary<string, Vector3> startingRotations = new System.Collections.Generic.Dictionary<string, Vector3>
@@ -40,6 +47,13 @@ public class Trajectory_Manager : MonoBehaviour
         { "LHip", new Vector3(0.72649169f, -0.00448312704f, 179.659653f) },
         { "RHip", new Vector3(0.725743175f, 0.00427764142f, 180.350372f) },
         { "Head", new Vector3(0f, 0f, 0f)}
+    };
+    private System.Collections.Generic.Dictionary<string, Vector3> originalLocalOffsets = new System.Collections.Generic.Dictionary<string, Vector3>
+    {
+        { "Spine0", new Vector3(-8.5978554e-06f, 0.09923462f, -0.01227335f) },
+        { "Spine1", new Vector3(-6.9202592e-21f, 0.117319785f, -1.9984014e-17f) },
+        { "Spine2", new Vector3(-1.9314919e-13f, 0.13458836f,  6.2616576e-15f) },
+        { "Neck",   new Vector3(-2.5481228e-07f, 0.150277615f, 0.008779068f) }
     };
 
     // Coroutines
@@ -80,6 +94,7 @@ public class Trajectory_Manager : MonoBehaviour
     // Function for loading trajectory data from a CSV file
     private void LoadTrajectoryData(string csvPath)
     {
+
         // Read the CSV file to a list of arrays
         try
         {
@@ -99,6 +114,11 @@ public class Trajectory_Manager : MonoBehaviour
         {
             Debug.LogError($"Failed to read CSV file: {ex.Message}");
         }
+
+        // Get min and max frame number
+        int.TryParse(trajectoryData[1][0], out minFrame);
+        int.TryParse(trajectoryData[trajectoryData.Count - 1][0], out maxFrame);
+
         if (debug)
         {
             Debug.Log($"Trajectory data loaded from {csvPath}. Total rows: {trajectoryData.Count}");
@@ -164,6 +184,7 @@ public class Trajectory_Manager : MonoBehaviour
                             // Store RHip and LHip positions
                             if (jointName == "RHip") rHipPos = unityPos;
                             if (jointName == "LHip") lHipPos = unityPos;
+                            if (jointName == "Head") headP = unityPos;
                         }
                     }
                 }
@@ -175,18 +196,6 @@ public class Trajectory_Manager : MonoBehaviour
         {
             hips.transform.localPosition = (rHipPos.Value + lHipPos.Value) / 2f;
         }
-
-        // Subtract spine2Pos position from the shoulders (0f, 0.349291f, 0f) from the hips
-        GameObject rShoulder = joints.Find(j => j.name == "RShoulder");
-        GameObject lShoulder = joints.Find(j => j.name == "LShoulder");
-        if (rShoulder != null && lShoulder != null && hips != null)
-        {
-            Vector3 spine2Pos = hips.transform.localPosition + new Vector3(0f, 0.349291f, 0f);
-            rShoulder.transform.localPosition -= spine2Pos;
-            lShoulder.transform.localPosition -= spine2Pos;
-        }   
-
-
 
         // If the position of the head is Vector3(0,1.787,0) (or close to it by 0.1), set it as Vector3(0,0.787,0) above the hips
         GameObject head = joints.Find(j => j.name == "Head");
@@ -210,12 +219,79 @@ public class Trajectory_Manager : MonoBehaviour
             neck.transform.localPosition = head.transform.localPosition;
         }
 
-        // Fix stationary joints
-        //FixStaticJoints(frame);
+        // Align the spine and neck according to the provided head and hips position
+        AlignSpine();
 
         // Update joint rotations based on the new positions
         UpdateJointRotations();
         StartCoroutine(UpdateHandRotationsCoroutine());
+    }
+
+    // Function to align the spine between the hips and the head
+    public void AlignSpineOld()
+    {
+        Transform hips = joints.Find(j => j.name == "Hips").transform;
+        Transform spine0 = joints.Find(j => j.name == "Spine0").transform;
+        Transform spine1 = joints.Find(j => j.name == "Spine1").transform;
+        Transform spine2 = joints.Find(j => j.name == "Spine2").transform;
+        Transform neck = joints.Find(j => j.name == "Neck").transform;
+        Vector3 head = headP;
+
+        Debug.Log("Hips: " + hips.position + " - Head: " + head);
+
+        // Compute new spine vector and compare to normal
+        Vector3 spineVectorPose = head - hips.position;
+        float elongation = spineVectorPose.magnitude / spineVectorBase.magnitude;
+        Vector3 difference = spineVectorPose - spineVectorBase;
+
+        Debug.Log("spineVectorPose: " + spineVectorPose + " - difference: " + difference);
+
+        // Rotate spine0 so it points towards head
+        float locZ = head.z - (hips.position.z -0.01f);
+        float locY = head.y - (hips.position.y + 0.1f);
+        float locC1 = Mathf.Sqrt(Mathf.Pow(locY, 2) + Mathf.Pow(locZ, 2));
+        float locX = head.x - hips.position.x;
+        float locC2 = Mathf.Sqrt(Mathf.Pow(locY, 2) + Mathf.Pow(locX, 2));
+        //Debug.Log("Head position in spine0 RF x: " + head.x + " - " + hips.position.x + " - " + spine0.position.x);
+
+        spine0.eulerAngles = new Vector3(Mathf.Acos((Mathf.Pow(locY, 2) + Mathf.Pow(locC1, 2) - Mathf.Pow(locZ, 2)) / (2 * locY * locC1)) * 2 * Mathf.PI, spine0.eulerAngles.y, Mathf.Acos((Mathf.Pow(locY, 2) + Mathf.Pow(locC2, 2) - Mathf.Pow(locX, 2)) / (2 * locY * locC2)) * 2 * Mathf.PI);
+
+        Debug.Log("Spine0 rotations - x: " + spine0.eulerAngles.x + " - z: " + spine0.eulerAngles.z);
+    }
+
+    // Function to align the spine joints so they form a line from the hips to the head
+    private void AlignSpine()
+    {
+        Transform hips = joints.Find(j => j.name == "Hips").transform;
+        Transform spine0 = joints.Find(j => j.name == "Spine0").transform;
+        Transform spine1 = joints.Find(j => j.name == "Spine1").transform;
+        Transform spine2 = joints.Find(j => j.name == "Spine2").transform;
+        Transform neck = joints.Find(j => j.name == "Neck").transform;
+        Vector3 head = headP;
+        Vector3 startPoint = hips.position;
+        Vector3 endPoint = head;
+
+        float[] originalDistances = { 0.099f, 0.216f, 0.351f, 0.499f };
+        float originalTotalLength = 0.6f;
+        float newLength = Vector3.Distance(startPoint, endPoint);
+
+        // Direction vector from start to end
+        Vector3 direction = (endPoint - startPoint).normalized;
+        Vector3[] positions = new Vector3[originalDistances.Length];
+
+        for (int i = 0; i < originalDistances.Length; i++)
+        {
+            // Scale original distance
+            float scaledDistance = (originalDistances[i] / originalTotalLength) * newLength;
+
+            // Compute new joint positions
+            positions[i] = startPoint + direction * scaledDistance;
+        }
+
+        spine0.position = positions[0];
+        spine1.position = positions[1];
+        spine2.position = positions[2];
+        neck.position = positions[3];
     }
 
     // Function to update the joint rotations based on their relative positions
@@ -246,7 +322,7 @@ public class Trajectory_Manager : MonoBehaviour
         Quaternion overallRotation = Quaternion.Euler(0, overallYRot, 0);
 
         // List of joints to rotate
-        string[] jointsToRotate = { "RAnkle", "LAnkle", "Hips", "Head"};
+        string[] jointsToRotate = { "RAnkle", "LAnkle", "Hips", "Head" };
 
         foreach (string jointName in jointsToRotate)
         {
@@ -327,80 +403,17 @@ public class Trajectory_Manager : MonoBehaviour
         }
     }
 
-    // Function that checks if the joints were not moved in this frame and translate it by the hips movement
-    private void FixStaticJoints(int currentFrame)
-    {
-        if (currentFrame <= 2) return;
-
-        foreach (var jointName in startingRotations.Keys)
-        {
-            // Find joint GameObject
-            GameObject joint = joints.Find(j => j.name == jointName);
-            if (joint == null) continue;
-
-            // Get positions from trajectoryData for current and previous frame
-            Vector3? prevPos = null;
-            Vector3? currPos = null;
-            foreach (var data in trajectoryData)
-            {
-                if (data[1] == jointName)
-                {
-                    if (int.TryParse(data[0], out int frame))
-                    {
-                        string xStr = data[2].Replace(",", ".");
-                        string yStr = data[3].Replace(",", ".");
-                        string zStr = data[4].Replace(",", ".");
-                        if (float.TryParse(xStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x) &&
-                            float.TryParse(yStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float y) &&
-                            float.TryParse(zStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z))
-                        {
-                            Vector3 unityPos = new Vector3(x / scale, z / scale, y / scale);
-                            if (frame == currentFrame - 1) prevPos = unityPos;
-                            if (frame == currentFrame) currPos = unityPos;
-                        }
-                    }
-                }
-            }
-
-            // If position hasn't changed, translate by hips movement
-            if (prevPos.HasValue && currPos.HasValue && Vector3.Distance(prevPos.Value, currPos.Value) < 0.0001f)
-            {
-                // Get hips movement
-                Vector3? prevHips = null;
-                Vector3? currHips = null;
-                foreach (var data in trajectoryData)
-                {
-                    if (data[1] == "Hips")
-                    {
-                        if (int.TryParse(data[0], out int frame))
-                        {
-                            string xStr = data[2].Replace(",", ".");
-                            string yStr = data[3].Replace(",", ".");
-                            string zStr = data[4].Replace(",", ".");
-                            if (float.TryParse(xStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float x) &&
-                                float.TryParse(yStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float y) &&
-                                float.TryParse(zStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float z))
-                            {
-                                Vector3 unityPos = new Vector3(x / scale, z / scale, y / scale);
-                                if (frame == currentFrame - 1) prevHips = unityPos;
-                                if (frame == currentFrame) currHips = unityPos;
-                            }
-                        }
-                    }
-                }
-                if (prevHips.HasValue && currHips.HasValue)
-                {
-                    Vector3 hipsDelta = currHips.Value - prevHips.Value;
-                    joint.transform.localPosition += hipsDelta;
-                }
-            }
-        }
-    }
-
     void Start()
     {
+        // Load the video name from PlayerPrefs
+        if (PlayerPrefs.HasKey("VideoIndex"))
+        {
+            videoIndex = PlayerPrefs.GetString("CSV", "");
+        }
+        
         // Load trajectory data from the specified CSV path
-        LoadTrajectoryData(traj_csv_path);
+        LoadTrajectoryData(traj_csv_path + videoIndex);
+        uiManager.SetSliderRange(minFrame, maxFrame);
 
         if (debug)
         {
