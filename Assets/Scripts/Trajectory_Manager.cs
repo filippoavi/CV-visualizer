@@ -8,7 +8,7 @@ using System.IO;
 
 public class Trajectory_Manager : MonoBehaviour
 {
-    public string traj_csv_path = Application.dataPath + "/CSV/";
+    private string traj_csv_path = Application.dataPath + "/CSV/";
 
     // Trajectory data is stored as a list of arrays
     // First number in each line is the frame, second is the joint name, 3rd, 4th and 5th are the joint positions (z is up in data), last number is the visibility of the joint
